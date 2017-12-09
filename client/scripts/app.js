@@ -30,16 +30,16 @@ var app = {
       $('#send-button').on('click', function(event) {
         var inputText = $('#my-message').val(); 
         var username = window.location.search.slice(10);
-        var room = 'room';
+        var room = $('#roomlist').val();
         app.send(username, inputText, room);
         console.log(inputText, username, room);
       });
 
       $('body').on('change', '#roomlist', function(event) {
         var currentRoom = $(this).val();
-        console.log(currentRoom)
+        console.log(currentRoom);
         // var $filteredArray = $('#chats').children(`[data-room=${currentRoom}]`);
-        $('#chats').hide();
+        $('.chat').hide();
         // $filteredArray.show('#chats');
         console.log($(`[data-room=${currentRoom}]`));
         $(`[data-room=${currentRoom}]`).show();
@@ -56,7 +56,7 @@ var app = {
         var cleanName = stringCleaner(messageObj.username);
         var cleanMessage = stringCleaner(messageObj.text);
         var cleanRoom = stringCleaner(messageObj.roomname);
-        var $chat = `<div data-room=${cleanRoom}>${cleanName}:  ${cleanMessage} </div>`;
+        var $chat = `<div class="chat" data-room=${cleanRoom}>${cleanName}:  ${cleanMessage} </div>`;
         $('#chats').prepend($chat);
       });
       var $dropDown = app.createDropDown(messages);
