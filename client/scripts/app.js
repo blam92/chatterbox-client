@@ -22,56 +22,76 @@ var stringCleaner = function(string) {
   return div.innerHTML;
 };
 
+class User {
+  constructor() {
+    this.username = stringCleaner(window.location.search.slice(10));
+    this.friends = [];
+  }
+}
 
 var app = {
   init: function() {
     $(document).ready(function() {
       app.displayMessages();
+      var user = new User();
+
       $('#send-button').on('click', function(event) {
         var inputText = $('#my-message').val(); 
-        var username = window.location.search.slice(10);
-        var room = $('#roomlist').val();
+        var username = user.username;
+        var room = $('#roomlist option:selected').text();
+        console.log(room);
         app.send(username, inputText, room);
-        console.log(inputText, username, room);
       });
 
       $('body').on('change', '#roomlist', function(event) {
-        var currentRoom = $(this).val();
-        console.log(currentRoom);
-        // var $filteredArray = $('#chats').children(`[data-room=${currentRoom}]`);
-        $('.chat').hide();
-        // $filteredArray.show('#chats');
-        console.log($(`[data-room=${currentRoom}]`));
-        $(`[data-room=${currentRoom}]`).show();
+        app.filterMessagesByRoom();
       });
         
-      
+      $('#create-room-button').on('click', function(event) {
+        var username = user.username;
+        var newRoom = stringCleaner($('#new-room').val());
+        var welcomeMessage = 'Welcome to my new room :)';
+        app.send(username, welcomeMessage, newRoom);
+        app.displayMessages(newRoom);
+      });
     }); 
   },
+  filterMessagesByRoom: function() {
+    var currentRoom = $('#roomlist').val();
+    console.log(currentRoom);
+    $('.chat').hide();
+    $(`[data-room=${currentRoom}]`).show();
+  },
 
-  displayMessages: function() {
-    $.get('http://parse.sfm6.hackreactor.com/chatterbox/classes/messages?limit=2000', function(request) {
+  displayMessages: function(defaultRoom = undefined) {
+    $.get('http://parse.sfm6.hackreactor.com/chatterbox/classes/messages', {order: '-createdAt', limit: '100' }, function(request) {
       var messages = request.results;
       messages.forEach( function(messageObj) {
         var cleanName = stringCleaner(messageObj.username);
         var cleanMessage = stringCleaner(messageObj.text);
         var cleanRoom = stringCleaner(messageObj.roomname);
         var $chat = `<div class="chat" data-room=${cleanRoom}>${cleanName}:  ${cleanMessage} </div>`;
-        $('#chats').prepend($chat);
+        $('#chats').append($chat);
       });
-      var $dropDown = app.createDropDown(messages);
+      var $dropDown = app.createDropDown(messages, defaultRoom);
       $('h1').after($dropDown);
+      app.filterMessagesByRoom();
 
     });  
   },
-  createDropDown: function(array) {
-    var $dropDown = $('<select id="roomlist" name="rooms"></select>');
+  createDropDown: function(array, startingRoom = undefined) {
+    var $dropDown = $('#roomlist');
     var roomArray = _.pluck(array, 'roomname');
     var uniqRoomArray = _.uniq(roomArray);
     uniqRoomArray.forEach(function(room) {
       var cleanRoom = stringCleaner(room);
-      var $option = $(`<option value=${cleanRoom}>${cleanRoom}</option>`);
-      $dropDown.append($option);
+      if (startingRoom !== undefined && startingRoom === room) {
+        var $startingOption = $(`<option selected value=${cleanRoom}>${cleanRoom}</option>`);
+        $dropDown.prepend($startingOption);
+      } else {
+        var $option = $(`<option value=${cleanRoom}>${cleanRoom}</option>`);
+        $dropDown.prepend($option);
+      }
     });
     return $dropDown;
   },
@@ -81,19 +101,25 @@ var app = {
     var message = {};
     message.username = username;
     message.text = text;
-    message.room = room;
+    message.roomname = room;
+
     $.ajax({
       url: 'http://parse.sfm6.hackreactor.com/chatterbox/classes/messages',
       type: 'POST',
       data: JSON.stringify(message),
       contentType: 'application/json',
       success: function (data) {
-        console.log('chatterbox: Message sent');
+        console.log('chatterbox: Message sent' + JSON.stringify(message));
+        app.displayMessages(message.roomname);
       },
       error: function (data) {
         console.error('chatterbox: Failed to send message', data);
       }
     }); 
+  },
+  
+  createRoom: function() {
+  
   }
 };
 
