@@ -22,22 +22,32 @@ var stringCleaner = function(string) {
   return div.innerHTML;
 };
 
+var spaceReplacerWithDash = function(string) {
+  return string.replace(/\s+/g, '-');
+};
+
 class User {
   constructor() {
     this.username = stringCleaner(window.location.search.slice(10));
-    this.friends = [];
+    this.friends = {};
   }
 }
 
 var app = {
+  user: undefined,
+
   init: function() {
     $(document).ready(function() {
       app.displayMessages();
-      var user = new User();
+
+      setInterval(function() {
+        app.displayMessages(undefined, '100');
+      }, 8000);
+      app.user = new User();
 
       $('#send-button').on('click', function(event) {
         var inputText = $('#my-message').val(); 
-        var username = user.username;
+        var username = app.user.username;
         var room = $('#roomlist option:selected').text();
         console.log(room);
         app.send(username, inputText, room);
@@ -48,30 +58,48 @@ var app = {
       });
         
       $('#create-room-button').on('click', function(event) {
-        var username = user.username;
+        var username = app.user.username;
         var newRoom = stringCleaner($('#new-room').val());
         var welcomeMessage = 'Welcome to my new room :)';
         app.send(username, welcomeMessage, newRoom);
         app.displayMessages(newRoom);
       });
+
+      $('body').on('click', '.chat', function(event) {
+        var username = $(this).data().user;
+        if (app.user.friends[username] === undefined) {
+          app.user.friends[username] = username;
+        } else {
+          delete app.user.friends[username];
+        }
+        
+        $(`[data-user=${username}]`).toggleClass('friend');
+        
+      });
     }); 
   },
   filterMessagesByRoom: function() {
     var currentRoom = $('#roomlist').val();
-    console.log(currentRoom);
     $('.chat').hide();
     $(`[data-room=${currentRoom}]`).show();
   },
 
-  displayMessages: function(defaultRoom = undefined) {
-    $.get('http://parse.sfm6.hackreactor.com/chatterbox/classes/messages', {order: '-createdAt', limit: '100' }, function(request) {
+  displayMessages: function(defaultRoom = undefined, limit = '100') {
+    app.clearMessages();
+    $.get('http://parse.sfm6.hackreactor.com/chatterbox/classes/messages', {order: '-createdAt', limit: limit }, function(request) {
       var messages = request.results;
       messages.forEach( function(messageObj) {
         var cleanName = stringCleaner(messageObj.username);
         var cleanMessage = stringCleaner(messageObj.text);
         var cleanRoom = stringCleaner(messageObj.roomname);
-        var $chat = `<div class="chat" data-room=${cleanRoom}>${cleanName}:  ${cleanMessage} </div>`;
+        var userForDataProperty = spaceReplacerWithDash(cleanName);
+        var roomForDataProperty = spaceReplacerWithDash(cleanRoom);
+
+        var $chat = `<div class="chat" data-room=${roomForDataProperty} data-user=${userForDataProperty}>
+        ${cleanName}:  ${cleanMessage} </div>`;
+
         $('#chats').append($chat);
+        app.addClassIfFriend(userForDataProperty);
       });
       var $dropDown = app.createDropDown(messages, defaultRoom);
       $('h1').after($dropDown);
@@ -85,11 +113,12 @@ var app = {
     var uniqRoomArray = _.uniq(roomArray);
     uniqRoomArray.forEach(function(room) {
       var cleanRoom = stringCleaner(room);
+      var roomForDataProperty = spaceReplacerWithDash(cleanRoom);
       if (startingRoom !== undefined && startingRoom === room) {
-        var $startingOption = $(`<option selected value=${cleanRoom}>${cleanRoom}</option>`);
+        var $startingOption = $(`<option selected value=${roomForDataProperty}>${cleanRoom}</option>`);
         $dropDown.prepend($startingOption);
       } else {
-        var $option = $(`<option value=${cleanRoom}>${cleanRoom}</option>`);
+        var $option = $(`<option value=${roomForDataProperty}>${cleanRoom}</option>`);
         $dropDown.prepend($option);
       }
     });
@@ -118,8 +147,14 @@ var app = {
     }); 
   },
   
-  createRoom: function() {
-  
+  clearMessages: function() {
+    $('#chats').empty();
+  },
+
+  addClassIfFriend: function(username) {
+    if (app.user.friends[username] !== undefined) {
+      $(`[data-user=${username}]`).addClass('friend');
+    }
   }
 };
 
